@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="ipath",
-    version="0.0.1",
+    version="0.0.2",
     author="daohu527",
     author_email="daohu527@gmail.com",
     description="Apollo path and simple map making tool.",

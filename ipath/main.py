@@ -18,36 +18,56 @@ import argparse
 import sys
 import logging
 
-from math import nan, isnan
+from math import nan, isnan, sqrt
 
 from ipath.reader import Reader
 from ipath.draw import draw_line, show
 
+
+def clamp(n, minn, maxn):
+  return max(min(maxn, n), minn)
+
 class Point:
-  def __init__(self, x=None, y=None):
+  def __init__(self, x=None, y=None, v=None):
     self.x = x
     self.y = y
+    self.v = v
 
   def __str__(self):
-    return "{},{}".format(self.x, self.y)
+    return "{},{},{}".format(self.x, self.y, self.v)
 
 
-def draw_path(line):
-  draw_line(line)
+def draw_path(line, has_color):
+  draw_line(line, has_color)
   show()
 
-def get_path():
+def get_user_data(localization, data_type):
+  data = None
+  logging.debug(data_type)
+  if data_type == 'v':
+    velocity = localization.pose.linear_velocity
+    data = sqrt(velocity.x**2 + velocity.y**2 + velocity.z**2)
+  elif data_type == 'a':
+    acc = localization.pose.linear_acceleration
+    data = sqrt(acc.x**2 + acc.y**2 + acc.z**2)
+  logging.debug(data)
+  return data
+
+def get_path(data_type):
   line = []
   for localization in Reader():
     logging.debug(localization)
-    line.append(localization.pose.position)
+    position = localization.pose.position
+    v = get_user_data(localization, data_type)
+    point = Point(position.x, position.y, v)
+    line.append(point)
   return line
 
 def save_path(filename, line):
   with open(filename, 'w') as f:
-    for position in line:
-      if not isnan(position.x) and not isnan(position.y):
-        f.write(str(position.x) + "," + str(position.y) + "\n")
+    for point in line:
+      if not isnan(point.x) and not isnan(point.y):
+        f.write("{}\n".format(point))
 
 def read_path(filename):
   line = []
@@ -55,7 +75,7 @@ def read_path(filename):
     for l in f:
       l = l.replace("\n", '')
       data = l.split(',')
-      point = Point(float(data[0]), float(data[1]))
+      point = Point(float(data[0]), float(data[1]), float(data[2]))
       line.append(point)
   return line
 
@@ -67,6 +87,14 @@ def main(args=sys.argv):
   parser.add_argument(
     "-s", "--save", action="store", type=str, required=False,
     nargs='?', const='path.txt', help="save waypoint file path")
+
+  parser.add_argument(
+    "-c", "--has_color", action="store", type=bool, required=False,
+    nargs='?', default=True, const=True, help="draw with color or not")
+
+  parser.add_argument(
+    "-d", "--data_type", action="store", type=str, required=False,
+    nargs='?', default="v", const="v", help="user define data")
 
   parser.add_argument(
     "-i", "--input", action="store", type=str, required=False,
@@ -83,12 +111,12 @@ def main(args=sys.argv):
     line = read_path(args.input)
     for p in line:
       logging.debug(p)
-    draw_path(line)
+    draw_path(line, args.has_color)
   else:
-    line = get_path()
+    line = get_path(args.data_type)
     if args.save is not None:
       save_path(args.save, line)
-    draw_path(line)
+    draw_path(line, args.has_color)
 
 # if __name__ == "__main__":
 #   main(sys.argv)
